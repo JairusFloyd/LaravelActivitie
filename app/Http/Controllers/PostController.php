@@ -3,14 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
-use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
-    public function __construct(){
-        $this->middleware('auth')->only('create', 'edit', 'store','destory');
+    public function __construct()
+    {
+        $this->middleware('auth')->only('create');
+        $this->middleware('auth')->only('update');
+        $this->middleware('auth')->only('destroy');
+        
     }
     /**
      * Display a listing of the resource.
@@ -18,20 +22,23 @@ class PostController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function index()
-    {   
-        $post = Post::get();
-
-        return view('posts.index', compact('post'));
+    {
+        $user = User::find(Auth::id()); 
+        $post = $user->posts()->orderBy('created_at','desc')->get();
+        // dd($post);
+        $count = $user->posts()->where('title','!=','')->count();
+        // dd($posts);
+        return view('posts.post', compact('post', 'count'));
     }
 
-    /**
+        /**
      * Show the form for creating a new resource.
      *
      * @return \Illuminate\Http\Response
      */
     public function create()
     {
-        return view('posts.create');
+        return view('Posts.create');
     }
 
     /**
@@ -42,72 +49,73 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
+
         $request->validate([
             'title' => 'required|unique:posts|max:225',
             'description' => 'required'
         ]);
+
+        // dd($request);
         if($request->hasFile('img')){
             $filenameWithExt = $request->file('img')->getClientOriginalName();
             $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
             $extension = $request->file('img')->getClientOriginalExtension();
-            $fileNameToStore = $filename.''.time().'.'.$extension;
+            $fileNameToStore = $filename.'_'.time().'.'.$extension;
             $path = $request->file('img')->storeAs('public/img', $fileNameToStore);
         }else{
             $fileNameToStore = '';
         }
-
+        
         $post = new Post();
-        $post->title = $request->title;
-        $post->description = $request->description;
+        $post->fill($request->all());
         $post->img = $fileNameToStore;
+        $post->user_id = auth()->user()->id;
         $post->save();
 
         return redirect('/posts');
-        
     }
 
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
+     * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show(Post $post)
     {
-        //
-            $post = Post::find($id);
-
-            return view('posts.show', compact('post'));
+        $post = $post->id;
+        $post = Post::where('id', $post)->get();
+        // dd($post);
+        
+        return view('Posts.show', compact('post'));
     }
 
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  int  $id
+     * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
     public function edit($id)
     {
-        //
+        
         $post = Post::find($id);
-
-        return view('posts.edit', compact('post'));
+        return view('Posts.edit', compact('post'));
     }
 
     /**
      * Update the specified resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
+     * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
     public function update(Request $request, $id)
     {
-        //
         $post = Post::find($id);
-        $post->title = $request->title;
-        $post->description = $request->description;
-        $post->save();
+        $post ->title = $request ->title;
+        $post ->description = $request ->description;
+        $post ->save();
 
         return redirect('/posts');
     }
@@ -115,14 +123,13 @@ class PostController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  int  $id
+     * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy($post)
     {
-        //
-        $post = Post::find($id);
-        $post->delete();
+        $data = Post::find($post);
+        $data->delete();
 
         return redirect('/posts');
     }
